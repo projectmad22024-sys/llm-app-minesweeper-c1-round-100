@@ -1,52 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minesweeper</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: 20px;
-        }
-        #game {
-            display: grid;
-            grid-template-columns: repeat(8, 40px);
-            grid-template-rows: repeat(8, 40px);
-            gap: 2px;
-        }
-        .cell {
-            width: 40px;
-            height: 40px;
-            background-color: #ccc;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            font-weight: bold;
-            user-select: none;
-            border: 1px solid #999;
-        }
-        .cell.revealed {
-            background-color: #eee;
-            cursor: default;
-        }
-        .mine {
-            background-color: red;
-        }
-        #status {
-            margin-top: 20px;
-            font-size: 24px;
-            color: #333;
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>8x8 Minesweeper</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px;
+  }
+  #message {
+    margin: 20px;
+  }
+  table {
+    border-collapse: collapse;
+  }
+  td {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #555;
+    text-align: center;
+    vertical-align: middle;
+    font-weight: bold;
+    font-size: 1.2em;
+    cursor: pointer;
+    background-color: #ddd;
+  }
+  td.revealed {
+    background-color: #fff;
+    cursor: default;
+  }
+  td.mine {
+    background-color: red;
+  }
+</style>
 </head>
 <body>
-    <h1 id="status"></h1>
-    <div id="game"></div>
-    <script src="script.js"></script>
+<h1 id="message"></h1>
+<table id="minefield"></table>
+<script>
+const ROWS = 8;
+const COLS = 8;
+const MINES_COUNT = 10;
+let minefield = [];
+let gameOver = false;
+
+function init() {
+  const table = document.getElementById('minefield');
+  table.innerHTML = '';
+  minefield = [];
+  for (let r = 0; r < ROWS; r++) {
+    const row = [];
+    const tr = document.createElement('tr');
+    for (let c = 0; c < COLS; c++) {
+      const td = document.createElement('td');
+      td.addEventListener('click', () => onCellClick(r, c));
+      tr.appendChild(td);
+      row.push({ element: td, mine: false, revealed: false, adjacentMines: 0 });
+    }
+    table.appendChild(tr);
+    minefield.push(row);
+  }
+  placeMines();
+  calculateAdjacents();
+}
+
+function placeMines() {
+  let minesPlaced = 0;
+  while (minesPlaced < MINES_COUNT) {
+    const r = Math.floor(Math.random() * ROWS);
+    const c = Math.floor(Math.random() * COLS);
+    if (!minefield[r][c].mine) {
+      minefield[r][c].mine = true;
+      minesPlaced++;
+    }
+  }
+}
+
+function calculateAdjacents() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      let count = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (
+            nr >= 0 && nr < ROWS &&
+            nc >= 0 && nc < COLS &&
+            (dr !== 0 || dc !== 0)
+          ) {
+            if (minefield[nr][nc].mine) {
+              count++;
+            }
+          }
+        }
+      }
+      minefield[r][c].adjacentMines = count;
+    }
+  }
+}
+
+function onCellClick(r, c) {
+  if (gameOver) return;
+  const cell = minefield[r][c];
+  if (cell.revealed) return;
+  cell.revealed = true;
+  cell.element.classList.add('revealed');
+  if (cell.mine) {
+    cell.element.classList.add('mine');
+    revealAllMines();
+    document.getElementById('message').innerHTML = 'BOOM! Game Over.';
+    gameOver = true;
+  } else {
+    if (cell.adjacentMines > 0) {
+      cell.element.textContent = cell.adjacentMines;
+    } else {
+      // flood fill for empty cells
+      revealEmptyCells(r, c);
+    }
+  }
+}
+
+function revealEmptyCells(r, c) {
+  const stack = [];
+  stack.push({r, c});
+  while (stack.length > 0) {
+    const { r: row, c: col } = stack.pop();
+    const cell = minefield[row][col];
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = row + dr;
+        const nc = col + dc;
+        if (
+          nr >= 0 && nr < ROWS &&
+          nc >= 0 && nc < COLS
+        ) {
+          const neighbor = minefield[nr][nc];
+          if (!neighbor.revealed && !neighbor.mine) {
+            neighbor.revealed = true;
+            neighbor.element.classList.add('revealed');
+            if (neighbor.adjacentMines > 0) {
+              neighbor.element.textContent = neighbor.adjacentMines;
+            } else {
+              stack.push({r: nr, c: nc});
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function revealAllMines() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = minefield[r][c];
+      if (cell.mine) {
+        cell.element.classList.add('mine');
+        if (!cell.revealed) {
+          cell.revealed = true;
+          // Optional: show mines with an 'M' or icon
+        }
+      }
+    }
+  }
+}
+
+window.onload = init;
+</script>
 </body>
 </html>
